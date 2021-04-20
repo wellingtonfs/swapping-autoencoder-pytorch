@@ -78,7 +78,7 @@ class Visualizer():
         self.name = opt.name
         self.port = opt.display_port
         self.saved = False
-        if self.display_id > 0:
+        if self.display_id > 0 and opt.use_visdom:
             # connect to a visdom server
             import visdom
             self.plot_data = {}
@@ -100,7 +100,7 @@ class Visualizer():
             if not self.vis.check_connection():
                 self.create_visdom_connections()
 
-        if self.use_html:
+        if self.use_html and opt.use_visdom:
             # Create an HTML object at <checkpoints_dir>/web/;
             # Images will be saved under <checkpoints_dir>/web/images/
             self.web_dir = os.path.join(opt.checkpoints_dir, opt.name, 'web')
@@ -111,6 +111,10 @@ class Visualizer():
         # create a logging file to store training losses
         self.log_name = os.path.join(
             opt.checkpoints_dir, opt.name, 'loss_log.txt')
+
+        if not os.path.isdir(os.path.join(opt.checkpoints_dir, opt.name)):
+            os.makedirs(os.path.join(opt.checkpoints_dir, opt.name))
+
         with open(self.log_name, "a") as log_file:
             now = time.strftime("%c")
             log_file.write('================ Training Loss (%s) ================\n' % now)
