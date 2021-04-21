@@ -37,8 +37,8 @@ class Phoenix:
     @staticmethod
     def download(opt, tipo="train", split=[]):
         if split == []:
-            split = [0,567] if tipo == "train" else [0,63]
-            split = [0,55] if tipo == "dev" else split
+            split = [0,567] if "train" in tipo else [0,63]
+            split = [0,55] if "dev" in tipo else split
         elif len(split) != 2:
             raise Exception("split tem que ser do formato: [ini, fim] ou []")
 
