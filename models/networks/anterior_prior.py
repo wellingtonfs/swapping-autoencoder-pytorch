@@ -1,15 +1,17 @@
-import torch
+from models.networks import BaseNetwork
 import torch.nn as nn
+import torch
 
-class Prior(nn.Module):
-    def __init__(self, dim_y=3):
-        super().__init__()
+class CondPosePrior(BaseNetwork):
+    def __init__(self, opt):
+        super().__init__(opt)
         #(W−F+2P)/S + 1
         #(64-4+2)/2 + 1
+        self.opt = opt
 
         self.conv_layers = nn.Sequential(
             #Show(),
-            nn.Conv2d(in_channels=dim_y, out_channels=128, kernel_size=4, stride=2, padding=1), #128x32x32
+            nn.Conv2d(in_channels=self.opt.num_layers_pose, out_channels=128, kernel_size=4, stride=2, padding=1), #128x32x32
             nn.LeakyReLU(0.2),
             #Show(),
             nn.Conv2d(in_channels=128, out_channels=256, kernel_size=4, stride=2, padding=1), #256x16x16

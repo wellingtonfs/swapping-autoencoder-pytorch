@@ -112,3 +112,61 @@ class StyleGAN2ResnetEncoder(BaseNetwork):
             return sp, gl, feature
         else:
             return sp, gl
+
+'''
+
+enc:  torch.Size([4, 3, 256, 256]) <class 'torch.Tensor'>
+enc:  torch.Size([4, 32, 256, 256]) <class 'torch.Tensor'>
+enc:  torch.Size([4, 512, 16, 16]) <class 'torch.Tensor'>
+enc:  torch.Size([4, 8, 16, 16]) <class 'torch.Tensor'>
+
+enc:  torch.Size([4, 8, 16, 16]) <class 'torch.Tensor'>
+enc:  torch.Size([4, 2048]) <class 'torch.Tensor'>
+
+
+gen torch.Size([2, 8, 16, 16]) torch.Size([2, 2048]) <class 'torch.Tensor'> <class 'torch.Tensor'>
+gen torch.Size([2, 8, 16, 16]) torch.Size([2, 2048]) <class 'torch.Tensor'> <class 'torch.Tensor'>
+gen torch.Size([2, 8, 16, 16]) <class 'torch.Tensor'>
+gen torch.Size([2, 128, 256, 256]) <class 'torch.Tensor'>
+gen torch.Size([2, 3, 256, 256]) <class 'torch.Tensor'>
+
+gen torch.Size([4, 8, 16, 16]) torch.Size([4, 2048]) <class 'torch.Tensor'> <class 'torch.Tensor'>
+gen torch.Size([4, 8, 16, 16]) torch.Size([4, 2048]) <class 'torch.Tensor'> <class 'torch.Tensor'>
+gen torch.Size([4, 8, 16, 16]) <class 'torch.Tensor'>
+gen torch.Size([4, 128, 256, 256]) <class 'torch.Tensor'>
+gen torch.Size([4, 3, 256, 256]) <class 'torch.Tensor'>
+
+'''
+
+'''
+def forward(self, x, extract_features=False):
+    print("enc: ", x.shape, type(x))
+    x = self.FromRGB(x)
+    print("enc: ", x.shape, type(x))
+    midpoint = self.DownToSpatialCode(x)
+    print("enc: ", midpoint.shape, type(midpoint))
+    sp = self.ToSpatialCode(midpoint)
+    print("enc: ", sp.shape, type(sp))
+
+    if extract_features:
+        padded_midpoint = F.pad(midpoint, (1, 0, 1, 0), mode='reflect')
+        feature = self.DownToGlobalCode[0](padded_midpoint)
+        assert feature.size(2) == sp.size(2) // 2 and \
+            feature.size(3) == sp.size(3) // 2
+        feature = F.interpolate(
+            feature, size=(7, 7), mode='bilinear', align_corners=False)
+
+    x = self.DownToGlobalCode(midpoint)
+    x = x.mean(dim=(2, 3))
+    gl = self.ToGlobalCode(x)
+    sp = util.normalize(sp)
+    gl = util.normalize(gl)
+
+    print("enc: ", sp.shape, type(sp))
+    print("enc: ", gl.shape, type(gl))
+
+    if extract_features:
+        return sp, gl, feature
+    else:
+        return sp, gl
+'''

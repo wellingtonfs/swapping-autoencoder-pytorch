@@ -159,3 +159,28 @@ class StyleGAN2ResnetGenerator(BaseNetwork):
         rgb = self.ToRGB(x, global_code, None)
 
         return rgb
+
+'''
+def forward(self, spatial_code, global_code):
+    print("gen", spatial_code.shape, global_code.shape, type(spatial_code), type(global_code))
+    spatial_code = util.normalize(spatial_code)
+    global_code = util.normalize(global_code)
+    print("gen", spatial_code.shape, global_code.shape, type(spatial_code), type(global_code))
+
+    x = self.SpatialCodeModulation(spatial_code, global_code)
+    print("gen", x.shape, type(x))
+    for i in range(self.opt.netG_num_base_resnet_layers):
+        resblock = getattr(self, "HeadResnetBlock%d" % i)
+        x = resblock(x, global_code)
+
+    for j in range(self.opt.netE_num_downsampling_sp):
+        key_name = 2 ** (4 + j)
+        upsampling_layer = getattr(self, "UpsamplingResBlock%d" % key_name)
+        x = upsampling_layer(x, global_code)
+
+    print("gen", x.shape, type(x))
+    rgb = self.ToRGB(x, global_code, None)
+    print("gen", rgb.shape, type(rgb))
+
+    return rgb
+'''

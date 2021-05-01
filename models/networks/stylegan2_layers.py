@@ -643,15 +643,18 @@ class ConvLayer(nn.Sequential):
                 self.padding = 0
 
 
-        layers.append(("Conv",
-                       EqualConv2d(
-                           in_channel,
-                           out_channel,
-                           kernel_size,
-                           padding=self.padding,
-                           stride=stride,
-                           bias=bias and not activate,
-                       ))
+        layers.append(
+            (
+                "Conv",
+                EqualConv2d(
+                    in_channel,
+                    out_channel,
+                    kernel_size,
+                    padding=self.padding,
+                    stride=stride,
+                    bias=bias and not activate,
+                )
+            )
         )
 
         if activate:

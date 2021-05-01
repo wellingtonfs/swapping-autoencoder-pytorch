@@ -39,14 +39,17 @@ def enviar_arquivo(opt, tipo, path_file, cont=0):
         return enviar_arquivo(opt, tipo, path_file, cont=cont+1)
 
 class download_paralelo(Thread):
-    def __init__ (self, opt, tipo, nome):
+    def __init__ (self, opt, tipo, nome, path_to=None):
         Thread.__init__(self)
         self.opt = opt
         self.tipo = tipo
         self.nome = nome
+        self.path_to = path_to
 
     def run(self):
-        if not download_file(self.opt, self.tipo, self.nome, self.opt.download_dir):
+        if not download_file(self.opt, self.tipo, self.nome,\
+                self.opt.download_dir if self.path_to is None else self.path_to):
+                
             print("Problemas ao baixar o arquivo! '%s'"%self.nome)
 
 class enviar_paralelamente(Thread):
@@ -63,13 +66,14 @@ class ConnectionServer:
     def __init__(self, opt):
         self.opt = opt
 
-    def download(self, tipo, nome, paralelo=False):
+    def download(self, tipo, nome, paralelo=False, path_to=None):
         if paralelo:
-            mythread = download_paralelo(self.opt, tipo, nome)
+            mythread = download_paralelo(self.opt, tipo, nome, path_to=path_to)
             mythread.start()
             return mythread
         
-        return download_file(self.opt, tipo, nome, self.opt.download_dir)
+        return download_file(self.opt, tipo, nome,
+            self.opt.download_dir if path_to is None else path_to)
 
     def upload(self, tipo, path_file, paralelo=False):
         if paralelo:

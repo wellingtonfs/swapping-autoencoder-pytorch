@@ -7,7 +7,6 @@ from util import Visualizer
 from util import MetricTracker
 from evaluation import GroupEvaluator
 
-
 opt = TrainOptions().parse()
 dataset = data.create_dataset(opt)
 opt.dataset = dataset
