@@ -39,8 +39,11 @@ def imshow(img):
     else:
         with torch.no_grad():
             img = img.clone()
-            #img = img / 2 + 0.5
             img = img.to("cpu")
+
+            if img.min() < 0.0: # "des"normalizar
+                img = img / 2 + 0.5 # img * std + med,
+
             npimg = img.detach().numpy()
             if len(npimg.shape) == 3:
                 plt.imshow(np.transpose(npimg, (1, 2, 0)))
@@ -199,6 +202,21 @@ def make_pose(size, infos_json, tam_gauss=[48, 160]):
 #32, 160
 
 if __name__ == "__main__":
+    from PIL import Image
+
+    path_img = "/home/wellington/Downloads/780.png"
+
+    pic = Image.open(path_img).convert('RGB')
+
+    img = torch.ByteTensor(torch.ByteStorage.from_buffer(pic.tobytes()))
+    img = img.view(pic.size[1], pic.size[0], len(pic.getbands()))
+
+    print(img.shape)
+
+    imshow(img.numpy())
+
+
+    '''
     import json, time
 
     path_json = "/home/wellington/Downloads/780_keypoints.json"
@@ -209,7 +227,6 @@ if __name__ == "__main__":
         print(pose.shape, time.time()-i)
         imshow(pose[1:4])
 
-    '''
     img = make_gauss_phoenix(list_center=[
         (0, 0),
         (64,128),

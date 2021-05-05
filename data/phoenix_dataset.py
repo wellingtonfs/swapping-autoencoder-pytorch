@@ -1,6 +1,7 @@
 import random
 from data.image_folder import make_dataset
 from PIL import Image
+from skimage.io import imread
 
 from data.base_dataset import BaseDataset, get_transform
 from shutil import rmtree, move
@@ -126,6 +127,7 @@ class PhoenixDataset(BaseDataset):
 
         try:
             img = Image.open(path_img).convert('RGB')
+            #img = imread(path_img)
         except OSError as err:
             print(err)
             return self.__getitem__(random.randint(0, len(self) - 1))
