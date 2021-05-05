@@ -35,6 +35,8 @@ class CondPoseModel(BaseModel):
                 self.opt, self.opt.netPatchD, "patch_discriminator"
             )
 
+        print("--redes CONDPOSE carregadas--")
+
         # Count the iteration count of the discriminator
         # Used for lazy R1 regularization (c.f. Appendix B of StyleGAN2)
         self.register_buffer(
@@ -143,15 +145,13 @@ class CondPoseModel(BaseModel):
 
         losses = self.compute_image_discriminator_losses(images, rec)
 
-        if self.opt.lambda_PatchGAN > 0.0 and not self.opt.CondPose:
-            patch_losses = self.compute_patch_discriminator_losses(real, mix)
-            losses.update(patch_losses)
-
         metrics = {}  # no metrics to report for the Discriminator iteration
 
-        return losses, metrics, sp.detach(), gl.detach()
+        return losses, metrics
 
-    def compute_R1_loss(self, real):
+    def compute_R1_loss(self, images):
+        real, poses = images
+
         losses = {}
         if self.opt.lambda_R1 > 0.0:
             real.requires_grad_()
@@ -168,7 +168,7 @@ class CondPoseModel(BaseModel):
         else:
             grad_penalty = 0.0
 
-        if self.opt.lambda_patch_R1 > 0.0:
+        if self.opt.lambda_patch_R1 > 0.0 and not self.opt.CondPose:
             real_crop = self.get_random_crops(real).detach()
             real_crop.requires_grad_()
             target_crop = self.get_random_crops(real).detach()
@@ -210,7 +210,7 @@ class CondPoseModel(BaseModel):
         else:
             z_normal = torch.randn(mu.shape[0], mu.shape[1])
 
-        z_latent = z_normal * variancia + enc_mu
+        z_latent = z_normal * variancia + mu
         return z_latent
 
     def compute_generator_losses(self, images):
@@ -234,7 +234,7 @@ class CondPoseModel(BaseModel):
         rec = self.G(estrutura, z_latent)
 
         #perdas
-        metrics["L1_dist"] = self.l1_loss(rec, real)
+        metrics["L1_dist"] = self.l1_loss(rec, images)
         metrics["KL_dirv"] = self.kl_loss(mu, variancia, torch.zeros_like(mu), torch.ones_like(variancia))
 
         if self.opt.lambda_KL > 0.0:
@@ -252,15 +252,74 @@ class CondPoseModel(BaseModel):
         return losses, metrics
 
     def get_visuals_for_snapshot(self, real):
+        real, pose = real
+
         if self.opt.isTrain:
             # avoid the overhead of generating too many visuals during training
             real = real[:2] if self.opt.num_gpus > 1 else real[:4]
-        sp, gl = self.E(real)
-        layout = util.resize2d_tensor(util.visualize_spatial_code(sp), real)
-        rec = self.G(sp, gl)
-        mix = self.G(sp, self.swap(gl))
+            pose = pose[:2] if self.opt.num_gpus > 1 else pose[:4]
 
-        visuals = {"real": real, "layout": layout, "rec": rec, "mix": mix}
+        mu, logvar = self.E(real, pose)
+        estrutura = self.M(pose)
+
+        #amostrando
+        variancia = torch.exp(logvar * 0.5)
+        z_latent = self.amostragem_logvar(mu, variancia)
+
+        #reconstrução
+        rec = self.G(estrutura, z_latent)
+
+        visuals = {"real": real, "rec": rec}
+
+        return visuals
+
+    def save_imgs_test(self, images):
+        #batch size de 'images' deve ser maior ou igual a 2
+        images, poses = images
+
+        assert images.shape[0] >= 2, "Batch size deve ser maior que 2"
+        assert images.shape[0] % 2 == 0, "Batch size deve ser par"
+
+        device = "cuda:0" if self.opt.num_gpus > 0 else "cpu"
+
+        #reconstrução
+        mu, logvar = self.E(images, poses)
+        estrutura = self.M(poses)
+
+        variancia = torch.exp(logvar * 0.5)
+        z_latent = self.amostragem_logvar(mu, variancia)
+
+        rec = self.G(estrutura, z_latent)
+
+        #amostragem
+        z_latent = self.amostragem_logvar(
+            torch.zeros_like(mu, device=device),
+            torch.ones_like(variancia, device=device)
+        )
+
+        am = self.G(estrutura, z_latent)
+
+        #teste de sanidade
+        l = [float('%.2f'%(-1 + 0.04*v)) for v in range(0,51)]
+
+        z_latent_san = torch.full((1, self.opt.global_code_ch), 0.0, device=device)
+        list_imgs = []
+
+        for i in l:
+            z_latent_san.fill_(i)
+            list_imgs.append(self.G(estrutura[:1], z_latent_san)[0])
+
+        #troca
+        poses = self.swap(poses)
+        mu, logvar = self.E(images, poses)
+        estrutura = self.M(poses)
+
+        variancia = torch.exp(logvar * 0.5)
+        z_latent = self.amostragem_logvar(mu, variancia)
+
+        mix = self.G(estrutura, z_latent)
+
+        visuals = {"real": images, "rec": rec, "amostragem": am, "mix": mix, "san": list_imgs}
 
         return visuals
 

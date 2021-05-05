@@ -41,6 +41,8 @@ class CondPoseOptimizer(BaseOptimizer):
             self.Dparams, lr=opt.lr * c, betas=(opt.beta1 ** c, opt.beta2 ** c)
         )
 
+        print("--Otimizador CondPose carregado--")
+
     def set_requires_grad(self, params, requires_grad):
         """ For more efficient optimization, turn on and off
             recording of gradients for |params|.
@@ -88,11 +90,10 @@ class CondPoseOptimizer(BaseOptimizer):
         self.discriminator_iter_counter += 1
         self.optimizer_D.zero_grad()
 
-        d_losses, d_metrics, sp, gl = self.model(
+        d_losses, d_metrics = self.model(
             images, command="compute_discriminator_losses"
         )
-        self.previous_sp = sp.detach()
-        self.previous_gl = gl.detach()
+
         d_loss = sum([v.mean() for v in d_losses.values()])
         d_loss.backward()
         self.optimizer_D.step()
@@ -117,6 +118,11 @@ class CondPoseOptimizer(BaseOptimizer):
         images = self.prepare_images(data_i)
         with torch.no_grad():
             return self.model(images, command="get_visuals_for_snapshot")
+
+    def save_imgs_test(self, data_i):
+        images = self.prepare_images(data_i)
+        with torch.no_grad():
+            return self.model(images, command="save_imgs_test")
 
     def save(self, total_steps_so_far):
         self.model.save(total_steps_so_far)

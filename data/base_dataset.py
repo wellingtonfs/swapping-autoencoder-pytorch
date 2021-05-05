@@ -128,7 +128,7 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
     transform_list.append(transforms.Lambda(lambda img: __make_power_2(img, base=16, method=method)))
 
     random_flip = opt.isTrain and (not opt.no_flip)
-    if random_flip:
+    if random_flip and not opt.CondPose:
         transform_list.append(transforms.RandomHorizontalFlip())
     #elif 'flip' in params:
     #    transform_list.append(transforms.Lambda(lambda img: __flip(img, params['flip'])))

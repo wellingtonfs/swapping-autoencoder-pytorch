@@ -47,8 +47,8 @@ class CondPoseEncoder(BaseNetwork):
             nn.Sequential(
                 ResBlock(512, 512, pad=1, downsample=False), #512x4x4
                 ResBlock(512, 512, pad=1, downsample=False), #512x4x4
-                ResBlock(512, 512, pad=1, downsample=False), #512x4x4
-                ResBlock(512, 512, blur_kernel, reflection_pad=True) #512x1x1
+                ResBlock(512, 512, blur_kernel, reflection_pad=True), #512x2x2
+                ResBlock(512, 512, blur_kernel, reflection_pad=False) #512x1x1
             )
         )
 

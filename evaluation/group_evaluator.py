@@ -31,6 +31,7 @@ def find_evaluator_classes(opt):
         else:
             target_phases.append("test")
 
+        print("Evaluator: %s_evaluator" % metric)
         metric_class = find_evaluator_using_name("%s_evaluator" % metric)
         all_classes.append(metric_class)
 
