@@ -49,29 +49,29 @@ class CondPoseOptimizer(BaseOptimizer):
             p.requires_grad_(requires_grad)
 
     def prepare_images(self, data_i):
-        return data_i["real_A"]
+        return data_i["real_A"], data_i["pose"]
 
     def toggle_training_mode(self):
         modes = ["discriminator", "generator"]
         self.train_mode_counter = (self.train_mode_counter + 1) % len(modes)
         return modes[self.train_mode_counter]
 
-    def train_one_step(self, data_i, poses, total_steps_so_far):
+    def train_one_step(self, data_i, total_steps_so_far):
         images_minibatch = self.prepare_images(data_i)
         if self.toggle_training_mode() == "generator":
-            losses = self.train_discriminator_one_step(images_minibatch, poses)
+            losses = self.train_discriminator_one_step(images_minibatch)
         else:
-            losses = self.train_generator_one_step(images_minibatch, poses)
+            losses = self.train_generator_one_step(images_minibatch)
         return util.to_numpy(losses)
 
-    def train_generator_one_step(self, images, poses):
+    def train_generator_one_step(self, images):
         self.set_requires_grad(self.Dparams, False)
         self.set_requires_grad(self.Gparams, True)
 
         self.optimizer_G.zero_grad()
 
         g_losses, g_metrics = self.model(
-            images, poses, command="compute_generator_losses"
+            images, command="compute_generator_losses"
         )
 
         g_loss = sum([v.mean() for v in g_losses.values()])
@@ -80,7 +80,7 @@ class CondPoseOptimizer(BaseOptimizer):
         g_losses.update(g_metrics)
         return g_losses
 
-    def train_discriminator_one_step(self, images, poses):
+    def train_discriminator_one_step(self, images):
         if self.opt.lambda_GAN == 0.0 and self.opt.lambda_PatchGAN == 0.0:
             return {}
         self.set_requires_grad(self.Dparams, True)
@@ -89,7 +89,7 @@ class CondPoseOptimizer(BaseOptimizer):
         self.optimizer_D.zero_grad()
 
         d_losses, d_metrics, sp, gl = self.model(
-            images, poses, command="compute_discriminator_losses"
+            images, command="compute_discriminator_losses"
         )
         self.previous_sp = sp.detach()
         self.previous_gl = gl.detach()

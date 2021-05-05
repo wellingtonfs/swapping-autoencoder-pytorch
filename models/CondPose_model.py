@@ -117,8 +117,10 @@ class CondPoseModel(BaseModel):
 
         return losses
 
-    def compute_discriminator_losses(self, images, poses):
+    def compute_discriminator_losses(self, images):
         self.num_discriminator_iters.add_(1)
+
+        images, poses = images
 
         #real: Batch X 3 X 256 X 256
         #pose: Batch X 32 X 256 X 256
@@ -211,9 +213,11 @@ class CondPoseModel(BaseModel):
         z_latent = z_normal * variancia + enc_mu
         return z_latent
 
-    def compute_generator_losses(self, images, poses):
+    def compute_generator_losses(self, images):
         #real: Batch X 3 X 256 X 256
         #pose: Batch X 32 X 256 X 256
+
+        images, poses = images
 
         losses, metrics = {}, {}
         B = images.size(0)

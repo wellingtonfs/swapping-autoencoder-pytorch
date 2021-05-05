@@ -4,10 +4,10 @@ from PIL import Image
 
 from data.base_dataset import BaseDataset, get_transform
 from shutil import rmtree, move
-from util import ConnectionServer, unzip, change
-import os, json
+from util import ConnectionServer, unzip, change, make_pose
+import os, json, torch
 
-class DatasetPhoenix(BaseDataset):
+class PhoenixDataset(BaseDataset):
     def __init__(self, opt):
         BaseDataset.__init__(self, opt)
 
@@ -119,8 +119,8 @@ class DatasetPhoenix(BaseDataset):
         return self.size_data
 
     def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
+        #if torch.is_tensor(idx):
+        #    idx = idx.tolist()
 
         path_img, path_pose = self.data[idx % self.size_data]
 
@@ -131,8 +131,11 @@ class DatasetPhoenix(BaseDataset):
             return self.__getitem__(random.randint(0, len(self) - 1))
 
         with open(path_pose, "r") as f:
-            info = json.loads(f.read())
-            pose = self.make_pose(info)
+            pose = make_pose(
+                self.opt.crop_size,
+                json.load(f),
+                tam_gauss=[self.opt.tam_gauss_menor, self.opt.tam_gauss_maior]
+            )
 
         Img = self.transform(img)
 
