@@ -131,12 +131,8 @@ class CondPoseModel(BaseModel):
         B = images.size(0)
 
         #passando pelo encoder e mapping
-        mu, logvar = self.E(images, poses)
+        z_latent = self.E(images, poses)
         estrutura = self.M(poses)
-
-        #amostrando
-        variancia = torch.exp(logvar * 0.5)
-        z_latent = self.amostragem_logvar(mu, logvar)
 
         #reconstrução
         rec = self.G(estrutura, z_latent)
@@ -223,6 +219,166 @@ class CondPoseModel(BaseModel):
         B = images.size(0)
 
         #passando pelo encoder e mapping
+        z_latent = self.E(images, poses)
+        estrutura = self.M(poses)
+
+        #reconstrução
+        rec = self.G(estrutura, z_latent)
+
+        #perdas
+        metrics["L1_dist"] = self.l1_loss(rec, images)
+
+        media, desvio_p = torch.mean(z_latent, dim=1), torch.std(z_latent, dim=1)
+
+        metrics["KL_dirv"] = self.kl_loss(media, desvio_p, torch.zeros_like(media), torch.ones_like(desvio_p))
+
+        if self.opt.lambda_KL > 0.0:
+            losses["KL_dirv"] = metrics["KL_dirv"] * self.opt.lambda_KL
+
+        if self.opt.lambda_L1 > 0.0:
+            losses["G_L1"] = metrics["L1_dist"] * self.opt.lambda_L1
+
+        if self.opt.lambda_GAN > 0.0:
+            losses["G_GAN_rec"] = loss.gan_loss(
+                self.D(rec),
+                should_be_classified_as_real=True
+            ) * (self.opt.lambda_GAN * 0.5)
+
+        return losses, metrics
+
+    def get_visuals_for_snapshot(self, real):
+        real, pose = real
+
+        if self.opt.isTrain:
+            # avoid the overhead of generating too many visuals during training
+            real = real[:2] if self.opt.num_gpus > 1 else real[:4]
+            pose = pose[:2] if self.opt.num_gpus > 1 else pose[:4]
+
+        z_latent = self.E(real, pose)
+        estrutura = self.M(pose)
+
+        #reconstrução
+        rec = self.G(estrutura, z_latent)
+
+        visuals = {"real": real, "rec": rec}
+
+        return visuals
+
+    def save_imgs_test(self, images):
+        #batch size de 'images' deve ser maior ou igual a 2
+        images, poses = images
+
+        assert images.shape[0] >= 2, "Batch size deve ser maior que 2"
+        assert images.shape[0] % 2 == 0, "Batch size deve ser par"
+
+        device = "cuda:0" if self.opt.num_gpus > 0 else "cpu"
+
+        #reconstrução
+        z_latent = self.E(images, poses)
+        estrutura = self.M(poses)
+
+        rec = self.G(estrutura, z_latent)
+
+        #amostragem
+        z_latent_new = torch.randn(*z_latent.shape, device=device)
+
+        am = self.G(estrutura, z_latent_new)
+
+        #teste de sanidade
+        l = [float('%.2f'%(-1 + 0.04*v)) for v in range(0,51)]
+
+        z_latent_san = torch.full((1, self.opt.global_code_ch), 0.0, device=device)
+        list_imgs = []
+
+        for i in l:
+            z_latent_san.fill_(i)
+            list_imgs.append(self.G(estrutura[:1], z_latent_san)[0])
+
+        #troca
+        poses = self.swap(poses)
+        z_latent = self.E(images, poses)
+        estrutura = self.M(poses)
+
+        mix = self.G(estrutura, z_latent)
+
+        visuals = {"real": images, "rec": rec, "amostragem": am, "mix": mix, "san": list_imgs}
+
+        return visuals
+
+    def fix_noise(self, sample_image=None):
+        """ The generator architecture is stochastic because of the noise
+        input at each layer (StyleGAN2 architecture). It could lead to
+        flickering of the outputs even when identical inputs are given.
+        Prevent flickering by fixing the noise injection of the generator.
+        """
+        print(">>::Função FIXNOISE Chamada::<<")
+        if sample_image is not None:
+            # The generator should be run at least once,
+            # so that the noise dimensions could be computed
+            sp, gl = self.E(sample_image)
+            self.G(sp, gl)
+        noise_var = self.G.fix_and_gather_noise_parameters()
+        return noise_var
+
+    def encode(self, image, extract_features=False):
+        return self.E(image, extract_features=extract_features)
+
+    def decode(self, spatial_code, global_code):
+        return self.G(spatial_code, global_code)
+
+    def get_parameters_for_mode(self, mode):
+        if mode == "generator":
+            return list(self.G.parameters()) + list(self.E.parameters()) + list(self.M.parameters())
+        elif mode == "discriminator":
+            Dparams = []
+            if self.opt.lambda_GAN > 0.0:
+                Dparams += list(self.D.parameters())
+            if self.opt.lambda_PatchGAN > 0.0 and not self.opt.CondPose:
+                Dparams += list(self.Dpatch.parameters())
+            return Dparams
+
+'''
+
+def compute_discriminator_losses(self, images):
+        self.num_discriminator_iters.add_(1)
+
+        images, poses = images
+
+        #real: Batch X 3 X 256 X 256
+        #pose: Batch X 32 X 256 X 256
+
+        losses, metrics = {}, {}
+        B = images.size(0)
+
+        #passando pelo encoder e mapping
+        mu, logvar = self.E(images, poses)
+        estrutura = self.M(poses)
+
+        #amostrando
+        variancia = torch.exp(logvar * 0.5)
+        z_latent = self.amostragem_logvar(mu, logvar)
+
+        #reconstrução
+        rec = self.G(estrutura, z_latent)
+
+        assert B % 2 == 0, "Batch size must be even on each GPU."
+
+        losses = self.compute_image_discriminator_losses(images, rec)
+
+        metrics = {}  # no metrics to report for the Discriminator iteration
+
+        return losses, metrics
+
+def compute_generator_losses(self, images):
+        #real: Batch X 3 X 256 X 256
+        #pose: Batch X 32 X 256 X 256
+
+        images, poses = images
+
+        losses, metrics = {}, {}
+        B = images.size(0)
+
+        #passando pelo encoder e mapping
         mu, logvar = self.E(images, poses)
         estrutura = self.M(poses)
 
@@ -251,7 +407,7 @@ class CondPoseModel(BaseModel):
 
         return losses, metrics
 
-    def get_visuals_for_snapshot(self, real):
+def get_visuals_for_snapshot(self, real):
         real, pose = real
 
         if self.opt.isTrain:
@@ -323,33 +479,4 @@ class CondPoseModel(BaseModel):
 
         return visuals
 
-    def fix_noise(self, sample_image=None):
-        """ The generator architecture is stochastic because of the noise
-        input at each layer (StyleGAN2 architecture). It could lead to
-        flickering of the outputs even when identical inputs are given.
-        Prevent flickering by fixing the noise injection of the generator.
-        """
-        if sample_image is not None:
-            # The generator should be run at least once,
-            # so that the noise dimensions could be computed
-            sp, gl = self.E(sample_image)
-            self.G(sp, gl)
-        noise_var = self.G.fix_and_gather_noise_parameters()
-        return noise_var
-
-    def encode(self, image, extract_features=False):
-        return self.E(image, extract_features=extract_features)
-
-    def decode(self, spatial_code, global_code):
-        return self.G(spatial_code, global_code)
-
-    def get_parameters_for_mode(self, mode):
-        if mode == "generator":
-            return list(self.G.parameters()) + list(self.E.parameters()) + list(self.M.parameters())
-        elif mode == "discriminator":
-            Dparams = []
-            if self.opt.lambda_GAN > 0.0:
-                Dparams += list(self.D.parameters())
-            if self.opt.lambda_PatchGAN > 0.0 and not self.opt.CondPose:
-                Dparams += list(self.Dpatch.parameters())
-            return Dparams
+'''

@@ -41,7 +41,7 @@ class CondPoseOptimizer(BaseOptimizer):
             self.Dparams, lr=opt.lr * c, betas=(opt.beta1 ** c, opt.beta2 ** c)
         )
 
-        print("--Otimizador CondPose carregado--")
+        #print("--Otimizador CondPose carregado--")
 
     def set_requires_grad(self, params, requires_grad):
         """ For more efficient optimization, turn on and off

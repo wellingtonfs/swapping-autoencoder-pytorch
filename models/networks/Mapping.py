@@ -51,4 +51,5 @@ class CondPoseMapping(BaseNetwork):
 
         out = self.ResidualConv(out)
 
-        return util.normalize(self.conv_out(out))
+        #return util.normalize(self.conv_out(out))
+        return self.conv_out(out)

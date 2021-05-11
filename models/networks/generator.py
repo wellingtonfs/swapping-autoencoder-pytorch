@@ -66,6 +66,15 @@ class GeneratorModulation(torch.nn.Module):
             style = F.interpolate(style, size=(x.size(2), x.size(3)), mode='bilinear', align_corners=False)
             return x * (1 * self.scale(style)) + self.bias(style)
 
+class AjusteConst(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.const = torch.nn.Parameter(torch.Tensor([2.0]), requires_grad=True)
+        self.bias = torch.nn.Parameter(torch.Tensor([0.0]), requires_grad=True)
+
+    def forward(self, style):
+        style = style * self.const + self.bias
+        return style
 
 class StyleGAN2ResnetGenerator(BaseNetwork):
     """ The Generator (decoder) architecture described in Figure 18 of
@@ -110,6 +119,8 @@ class StyleGAN2ResnetGenerator(BaseNetwork):
 
         self.global_code_ch = opt.global_code_ch + opt.num_classes
 
+        self.add_module("MultConst", AjusteConst())
+
         self.add_module(
             "SpatialCodeModulation",
             GeneratorModulation(self.global_code_ch, opt.spatial_code_ch))
@@ -146,6 +157,9 @@ class StyleGAN2ResnetGenerator(BaseNetwork):
     def forward(self, spatial_code, global_code):
         spatial_code = util.normalize(spatial_code)
         global_code = util.normalize(global_code)
+
+        #tentativa:
+        global_code = self.MultConst(global_code)
 
         x = self.SpatialCodeModulation(spatial_code, global_code)
         for i in range(self.opt.netG_num_base_resnet_layers):
